@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cyber Halloween Maze</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #000000, #1a0f1f, #2d0a2e);
+            color: #ff9800;
+            overflow: hidden;
+        }
+
+        #game-container {
+            margin-top: 20px;
+            padding: 30px;
+            background: rgba(20, 10, 30, 0.8);
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(255, 152, 0, 0.3),
+                        0 0 40px rgba(156, 39, 176, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 152, 0, 0.1);
+        }
+
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 2.5em;
+            text-align: center;
+            background: linear-gradient(90deg, #ff9800, #ff4081);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(255, 152, 0, 0.3);
+        }
+
+        p {
+            color: #b388ff;
+            text-align: center;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+
+        #maze {
+            border: 2px solid rgba(255, 152, 0, 0.3);
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(179, 136, 255, 0.3);
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        button {
+            margin: 10px;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            background: linear-gradient(45deg, #ff4081, #ff9800);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 0 15px rgba(255, 64, 129, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px rgba(255, 64, 129, 0.5);
+            background: linear-gradient(45deg, #ff9800, #ff4081);
+        }
+
+        .win-message {
+            color: #69f0ae;
+            font-size: 28px;
+            font-weight: bold;
+            margin: 15px 0;
+            display: none;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(105, 240, 174, 0.5);
+            animation: glow 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 10px rgba(105, 240, 174, 0.5); }
+            to { text-shadow: 0 0 20px rgba(105, 240, 174, 0.8); }
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0) rotate(0deg); }
+            100% { transform: translateY(-100vh) rotate(360deg); }
+        }
+
+        .particle {
+            position: fixed;
+            width: 3px;
+            height: 3px;
+            background: rgba(255, 152, 0, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: float 15s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <script>
+        for (let i = 0; i < 50; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + 'vw';
+            particle.style.animationDelay = Math.random() * 15 + 's';
+            particle.style.opacity = Math.random() * 0.5;
+            document.body.appendChild(particle);
+        }
+    </script>
+
+    <div id="game-container">
+        <h1>🎃 Cyber Halloween Maze 👻</h1>
+        <p>Navigate through the neon labyrinth using arrow keys</p>
+        <button onclick="generateNewMaze()">Generate New Maze</button>
+        <div class="win-message" id="winMessage">🎃 Spooktacular Victory! 👻</div>
+        <canvas id="maze"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('maze');
+        const ctx = canvas.getContext('2d');
+        const cellSize = 30;
+        const rows = 15;
+        const cols = 15;
+        canvas.width = cols * cellSize;
+        canvas.height = rows * cellSize;
+
+        let playerPos = { x: 0, y: 0 };
+        let endPos = { x: cols - 1, y: rows - 1 };
+        let maze = [];
+
+        class Cell {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.walls = {
+                    top: true,
+                    right: true,
+                    bottom: true,
+                    left: true
+                };
+                this.visited = false;
+            }
+        }
+
+        function generateMaze() {
+            maze = Array(rows).fill().map((_, y) => 
+                Array(cols).fill().map((_, x) => new Cell(x, y))
+            );
+
+            const stack = [];
+            let current = maze[0][0];
+            current.visited = true;
+
+            function getNeighbors(cell) {
+                const neighbors = [];
+                const {x, y} = cell;
+                
+                if (y > 0 && !maze[y-1][x].visited) neighbors.push({cell: maze[y-1][x], dir: 'top'});
+                if (x < cols-1 && !maze[y][x+1].visited) neighbors.push({cell: maze[y][x+1], dir: 'right'});
+                if (y < rows-1 && !maze[y+1][x].visited) neighbors.push({cell: maze[y+1][x], dir: 'bottom'});
+                if (x > 0 && !maze[y][x-1].visited) neighbors.push({cell: maze[y][x-1], dir: 'left'});
+                
+                return neighbors;
+            }
+
+            while (true) {
+                const neighbors = getNeighbors(current);
+                if (neighbors.length > 0) {
+                    const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    stack.push(current);
+                    
+                    switch(next.dir) {
+                        case 'top':
+                            current.walls.top = false;
+                            next.cell.walls.bottom = false;
+                            break;
+                        case 'right':
+                            current.walls.right = false;
+                            next.cell.walls.left = false;
+                            break;
+                        case 'bottom':
+                            current.walls.bottom = false;
+                            next.cell.walls.top = false;
+                            break;
+                        case 'left':
+                            current.walls.left = false;
+                            next.cell.walls.right = false;
+                            break;
+                    }
+                    
+                    current = next.cell;
+                    current.visited = true;
+                } else if (stack.length > 0) {
+                    current = stack.pop();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        function drawMaze() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const cell = maze[y][x];
+                    const px = x * cellSize;
+                    const py = y * cellSize;
+
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#ff9800';
+                    ctx.shadowColor = '#ff4081';
+                    ctx.shadowBlur = 5;
+                    ctx.beginPath();
+                    
+                    if (cell.walls.top) {
+                        ctx.moveTo(px, py);
+                        ctx.lineTo(px + cellSize, py);
+                    }
+                    if (cell.walls.right) {
+                        ctx.moveTo(px + cellSize, py);
+                        ctx.lineTo(px + cellSize, py + cellSize);
+                    }
+                    if (cell.walls.bottom) {
+                        ctx.moveTo(px, py + cellSize);
+                        ctx.lineTo(px + cellSize, py + cellSize);
+                    }
+                    if (cell.walls.left) {
+                        ctx.moveTo(px, py);
+                        ctx.lineTo(px, py + cellSize);
+                    }
+                    
+                    ctx.stroke();
+                }
+            }
+
+            // Draw end point (ghost)
+            const ghostGradient = ctx.createRadialGradient(
+                endPos.x * cellSize + cellSize/2,
+                endPos.y * cellSize + cellSize/2,
+                0,
+                endPos.x * cellSize + cellSize/2,
+                endPos.y * cellSize + cellSize/2,
+                cellSize/2
+            );
+            ghostGradient.addColorStop(0, '#b388ff');
+            ghostGradient.addColorStop(1, '#7c4dff');
+            ctx.fillStyle = ghostGradient;
+            ctx.shadowColor = '#b388ff';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(
+                endPos.x * cellSize + cellSize/2,
+                endPos.y * cellSize + cellSize/2,
+                cellSize/3,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+
+            // Draw player (pumpkin)
+            const playerGradient = ctx.createRadialGradient(
+                playerPos.x * cellSize + cellSize/2,
+                playerPos.y * cellSize + cellSize/2,
+                0,
+                playerPos.x * cellSize + cellSize/2,
+                playerPos.y * cellSize + cellSize/2,
+                cellSize/2
+            );
+            playerGradient.addColorStop(0, '#ff9800');
+            playerGradient.addColorStop(1, '#ff4081');
+            ctx.fillStyle = playerGradient;
+            ctx.shadowColor = '#ff4081';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(
+                playerPos.x * cellSize + cellSize/2,
+                playerPos.y * cellSize + cellSize/2,
+                cellSize/3,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+        }
+
+        function canMove(fromX, fromY, toX, toY) {
+            if (toX < 0 || toX >= cols || toY < 0 || toY >= rows) return false;
+            
+            const currentCell = maze[fromY][fromX];
+            if (toX < fromX && currentCell.walls.left) return false;
+            if (toX > fromX && currentCell.walls.right) return false;
+            if (toY < fromY && currentCell.walls.top) return false;
+            if (toY > fromY && currentCell.walls.bottom) return false;
+            
+            return true;
+        }
+
+        function checkWin() {
+            if (playerPos.x === endPos.x && playerPos.y === endPos.y) {
+                document.getElementById('winMessage').style.display = 'block';
+            } else {
+                document.getElementById('winMessage').style.display = 'none';
+            }
+        }
+
+        function generateNewMaze() {
+            playerPos = { x: 0, y: 0 };
+            document.getElementById('winMessage').style.display = 'none';
+            generateMaze();
+            drawMaze();
+        }
+
+        // Modified event listener with secret portal
+        document.addEventListener('keydown', (e) => {
+            const key = e.key;
+            let newPos = { ...playerPos };
+
+            switch(key) {
+                case 'ArrowUp':
+                    newPos.y--;
+                    break;
+                case 'ArrowRight':
+                    newPos.x++;
+                    break;
+                case 'ArrowDown':
+                    newPos.y++;
+                    break;
+                case 'ArrowLeft':
+                    // Secret portal: if at start position and trying to move left
+                    if (playerPos.x === 0 && playerPos.y === 0) {
+                        playerPos = { x: endPos.x, y: endPos.y };
+                        drawMaze();
+                        checkWin();
+                        return;
+                    }
+                    newPos.x--;
+                    break;
+                default:
+                    return;
+            }
+
+            if (canMove(playerPos.x, playerPos.y, newPos.x, newPos.y)) {
+                playerPos = newPos;
+                drawMaze();
+                checkWin();
+            }
+        });
+
+        generateNewMaze();
+    </script>
+</body>
+</html>
